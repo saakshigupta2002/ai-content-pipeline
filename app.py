@@ -1,9 +1,9 @@
 import streamlit as st
 from src.graph import compile_graph, get_graph_config
 
-st.set_page_config(page_title="AI Content Pipeline", page_icon="\ud83d\udcdd", layout="wide")
-st.title("\ud83d\udcdd AI Content Pipeline")
-st.caption("Multi-agent blog post generator \u2014 LangGraph + LangSmith")
+st.set_page_config(page_title="AI Content Pipeline", page_icon="pencil", layout="wide")
+st.title("AI Content Pipeline")
+st.caption("Multi-agent blog post generator -- LangGraph + LangSmith")
 
 # --- Session State Initialization ---
 if "graph" not in st.session_state:
@@ -13,7 +13,7 @@ if "config" not in st.session_state:
 if "current_state" not in st.session_state:
     st.session_state.current_state = None
 if "stage" not in st.session_state:
-    st.session_state.stage = "input"  # input -> running -> outline_review -> writing -> final_review -> done
+    st.session_state.stage = "input"
 
 # --- Input Form ---
 if st.session_state.stage == "input":
@@ -27,7 +27,7 @@ if st.session_state.stage == "input":
             "Tone",
             ["casual-technical", "formal-technical", "tutorial", "opinionated", "explanatory"]
         )
-        submitted = st.form_submit_button("\ud83d\ude80 Generate Blog Post")
+        submitted = st.form_submit_button("Generate Blog Post")
 
     if submitted and topic:
         st.session_state.config = get_graph_config(topic, tone, target_audience)
@@ -54,12 +54,11 @@ if st.session_state.stage == "input":
 
 # --- Pipeline Execution (Research + Outline) ---
 if st.session_state.stage == "running":
-    st.info("\u23f3 Running pipeline: Research \u2192 Outline...")
+    st.info("Running pipeline: Research -> Outline...")
 
     graph = st.session_state.graph
     config = st.session_state.config
 
-    # Stream the graph execution — stops at interrupt_before human_review_outline
     with st.spinner("Researching and creating outline..."):
         for event in graph.stream(
             st.session_state.initial_input,
@@ -68,7 +67,6 @@ if st.session_state.stage == "running":
         ):
             st.session_state.current_state = event
 
-    # After hitting the interrupt_before human_review_outline, we pause
     st.session_state.stage = "outline_review"
     st.rerun()
 
@@ -76,25 +74,24 @@ if st.session_state.stage == "running":
 if st.session_state.stage == "outline_review":
     state = st.session_state.current_state
 
-    st.success("\u2705 Research complete!")
+    st.success("Research complete!")
 
-    with st.expander("\ud83d\udd0d Research Findings", expanded=False):
+    with st.expander("Research Findings", expanded=False):
         st.markdown(state.get("research_results", ""))
         if state.get("sources"):
             st.markdown("**Sources:**")
             for url in state["sources"]:
                 st.markdown(f"- {url}")
 
-    st.subheader("\ud83d\udccb Proposed Outline")
+    st.subheader("Proposed Outline")
     st.markdown(state.get("outline", ""))
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("\u2705 Approve Outline", type="primary"):
+        if st.button("Approve Outline", type="primary"):
             graph = st.session_state.graph
             config = st.session_state.config
 
-            # Update graph state to mark outline as approved before resuming
             graph.update_state(
                 config,
                 {"outline_approved": True}
@@ -109,11 +106,10 @@ if st.session_state.stage == "outline_review":
             value=state.get("outline", ""),
             height=300
         )
-        if st.button("\u270f\ufe0f Use Edited Outline"):
+        if st.button("Use Edited Outline"):
             graph = st.session_state.graph
             config = st.session_state.config
 
-            # Update state with edited outline and mark approved
             graph.update_state(
                 config,
                 {"outline": edited_outline, "outline_approved": True}
@@ -121,21 +117,19 @@ if st.session_state.stage == "outline_review":
             st.session_state.stage = "writing"
             st.rerun()
 
-# --- Writing + Review Phase (with token-level streaming for writer) ---
+# --- Writing + Review Phase ---
 if st.session_state.stage == "writing":
-    st.info("\u270d\ufe0f Writing blog post...")
+    st.info("Writing blog post...")
 
     graph = st.session_state.graph
     config = st.session_state.config
 
-    # Resume graph from the outline interrupt.
-    # Stream node-level state values and show draft + review status in real-time.
     draft_container = st.empty()
     status_container = st.empty()
 
     with st.spinner("Writing and reviewing..."):
         for event in graph.stream(
-            None,  # None = resume from interrupt
+            None,
             config=config,
             stream_mode="values",
         ):
@@ -144,7 +138,6 @@ if st.session_state.stage == "writing":
             current_agent = event.get("current_agent", "")
 
             if current_agent == "writer":
-                # Show the full draft as it arrives from this node
                 draft_text = event.get("draft", "")
                 revision = event.get("revision_count", 0)
                 draft_container.markdown(
@@ -154,13 +147,12 @@ if st.session_state.stage == "writing":
                 score = event.get("review_score", 0)
                 approved = event.get("review_approved", False)
                 if approved:
-                    status_container.success(f"\u2705 Reviewer approved! Score: {score}/10")
+                    status_container.success(f"Reviewer approved! Score: {score}/10")
                 else:
                     revision = event.get("revision_count", 0)
                     status_container.warning(
-                        f"\ud83d\udd04 Revision {revision} needed. Score: {score}/10 \u2014 sending back to writer..."
+                        f"Revision {revision} needed. Score: {score}/10 -- sending back to writer..."
                     )
-                    # Clear draft container for next revision
                     draft_container.empty()
 
     st.session_state.stage = "final_review"
@@ -170,31 +162,27 @@ if st.session_state.stage == "writing":
 if st.session_state.stage == "final_review":
     state = st.session_state.current_state
 
-    st.subheader("\ud83d\udcf0 Final Blog Post")
+    st.subheader("Final Blog Post")
 
-    # Show review stats
     col1, col2, col3 = st.columns(3)
     col1.metric("Review Score", f"{state.get('review_score', 0)}/10")
     col2.metric("Revisions", state.get("revision_count", 0))
-    col3.metric("Status", "\u2705 Approved" if state.get("review_approved") else "\u26a0\ufe0f Max revisions reached")
+    col3.metric("Status", "Approved" if state.get("review_approved") else "Max revisions reached")
 
-    # Show the draft
     st.markdown("---")
     st.markdown(state.get("draft", ""))
     st.markdown("---")
 
-    # Show sources
-    with st.expander("\ud83d\udcda Sources"):
+    with st.expander("Sources"):
         for url in state.get("sources", []):
             st.markdown(f"- {url}")
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("\u2705 Approve & Finalize", type="primary"):
+        if st.button("Approve & Finalize", type="primary"):
             graph = st.session_state.graph
             config = st.session_state.config
 
-            # Resume from final interrupt
             for event in graph.stream(None, config=config, stream_mode="values"):
                 st.session_state.current_state = event
 
@@ -202,19 +190,19 @@ if st.session_state.stage == "final_review":
             st.rerun()
 
     with col2:
-        if st.button("\u270f\ufe0f Edit Draft Manually"):
+        if st.button("Edit Draft Manually"):
             st.session_state.stage = "manual_edit"
             st.rerun()
 
     with col3:
-        if st.button("\ud83d\udd0d View in LangSmith"):
+        if st.button("View in LangSmith"):
             st.markdown("[Open in LangSmith](https://smith.langchain.com/)")
 
 # --- Manual Edit (optional path from final_review) ---
 if st.session_state.stage == "manual_edit":
     state = st.session_state.current_state
 
-    st.subheader("\u270f\ufe0f Edit Draft")
+    st.subheader("Edit Draft")
     edited_draft = st.text_area(
         "Make your changes below:",
         value=state.get("draft", ""),
@@ -223,11 +211,10 @@ if st.session_state.stage == "manual_edit":
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("\u2705 Save & Finalize", type="primary"):
+        if st.button("Save & Finalize", type="primary"):
             graph = st.session_state.graph
             config = st.session_state.config
 
-            # Update the draft in graph state with user's edits, then resume
             graph.update_state(
                 config,
                 {"draft": edited_draft, "final_approved": True, "final_output": edited_draft}
@@ -236,13 +223,12 @@ if st.session_state.stage == "manual_edit":
             for event in graph.stream(None, config=config, stream_mode="values"):
                 st.session_state.current_state = event
 
-            # Ensure final_output reflects the edit even if the node overwrote it
             st.session_state.current_state["final_output"] = edited_draft
             st.session_state.stage = "done"
             st.rerun()
 
     with col2:
-        if st.button("\u274c Cancel"):
+        if st.button("Cancel"):
             st.session_state.stage = "final_review"
             st.rerun()
 
@@ -251,13 +237,12 @@ if st.session_state.stage == "done":
     state = st.session_state.current_state
 
     st.balloons()
-    st.success("\ud83c\udf89 Blog post finalized!")
+    st.success("Blog post finalized!")
     st.markdown(state.get("final_output", state.get("draft", "")))
 
-    # Copy button
     st.code(state.get("final_output", state.get("draft", "")), language="markdown")
 
-    if st.button("\ud83d\udd04 Start New Post"):
+    if st.button("Start New Post"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()

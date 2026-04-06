@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 checkpoints/*.db
 .streamlit/
+.langgraph_api/
+checkpoints/state.db-shm
+checkpoints/state.db-wal

@@ -10,16 +10,18 @@ from src.config import CHECKPOINT_DB_PATH
 
 
 def _get_sqlite_saver(conn_string: str):
-    """Import and return a SqliteSaver, handling package location differences.
-    Also ensures the parent directory exists for file-based paths."""
+    """Create a SqliteSaver with a persistent sqlite3 connection.
+    Ensures the parent directory exists for file-based paths."""
     import os
+    import sqlite3
     if conn_string != ":memory:":
         os.makedirs(os.path.dirname(conn_string), exist_ok=True)
     try:
         from langgraph.checkpoint.sqlite import SqliteSaver
     except ImportError:
         from langgraph_checkpoint_sqlite import SqliteSaver
-    return SqliteSaver.from_conn_string(conn_string)
+    conn = sqlite3.connect(conn_string, check_same_thread=False)
+    return SqliteSaver(conn)
 
 
 def human_review_outline_node(state: PipelineState) -> dict:
