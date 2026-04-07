@@ -92,14 +92,14 @@ st.markdown("""
         padding: 1.2rem;
         text-align: center;
     }
-    .metric-card .label {
+    .metric-card .metric-label {
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: #666;
         margin-bottom: 6px;
     }
-    .metric-card .value {
+    .metric-card .metric-value {
         font-size: 1.6rem;
         font-weight: 700;
         color: #FFF;
@@ -113,6 +113,10 @@ st.markdown("""
         padding: 2rem;
         margin: 1rem 0;
         line-height: 1.8;
+        position: relative;
+        z-index: 1;
+        overflow-wrap: break-word;
+        white-space: pre-wrap;
     }
 
     /* === Source pills === */
@@ -127,6 +131,8 @@ st.markdown("""
         color: #999;
         text-decoration: none;
         transition: all 0.2s ease;
+        position: relative;
+        z-index: 1;
     }
     .source-pill:hover {
         background: #222;
@@ -262,8 +268,8 @@ def render_metric_cards(metrics):
     for col, (label, value) in zip(cols, metrics):
         col.markdown(f"""
         <div class="metric-card">
-            <div class="label">{label}</div>
-            <div class="value">{value}</div>
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
         </div>
         """, unsafe_allow_html=True)
 
